@@ -1,0 +1,16 @@
+{
+  "name": "explorador-de-fractais",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Mandelbrot, Julia, Burning Ship e Tricorn no navegador, com zoom profundo por perturbação, Web Workers e cores suaves.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/micdog22/explorador-de-fractais.git"
+  },
+  "homepage": "https://micdog22.github.io/explorador-de-fractais/"
+}

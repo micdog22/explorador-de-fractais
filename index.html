@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Explorador de Fractais: Mandelbrot e Julia com zoom profundo</title>
+  <meta name="description" content="Explore os conjuntos de Mandelbrot e Julia, o Burning Ship e o Tricorn com zoom profundo por perturbação, cores suaves e exportação em PNG. Tudo no navegador.">
+  <meta name="theme-color" content="#7c3aed">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌀</text></svg>">
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./src/app.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <h1>Explorador de Fractais</h1>
+    <p class="lead">Mandelbrot, Julia, Burning Ship e Tricorn com zoom profundo: até um raio de 10<sup>-300</sup>, muito além do que o <code>double</code> consegue sozinho.</p>
+  </header>
+
+  <main>
+    <section class="palco" aria-label="Fractal">
+      <div class="barra" role="toolbar" aria-label="Navegação">
+        <label class="sr-only" for="fractal">Fractal</label>
+        <select id="fractal">
+          <option value="mandelbrot">Mandelbrot</option>
+          <option value="julia">Julia</option>
+          <option value="burning-ship">Burning Ship</option>
+          <option value="tricorn">Tricorn</option>
+        </select>
+        <button type="button" class="btn secundario" id="voltar" title="Vista anterior (também funciona o voltar do navegador)">Voltar</button>
+        <button type="button" class="btn secundario" id="avancar" title="Próxima vista">Avançar</button>
+        <button type="button" class="btn secundario" id="inicio" title="Volta à vista inicial deste fractal">Início</button>
+        <button type="button" class="btn secundario" id="aproximar" title="Aproximar (tecla +)">Aproximar</button>
+        <button type="button" class="btn secundario" id="afastar" title="Afastar (tecla -)">Afastar</button>
+        <button type="button" class="btn secundario" id="modo-retangulo" aria-pressed="false" title="Arraste para desenhar o retângulo de zoom (no mouse, Shift + arrastar faz o mesmo)">Zoom por retângulo</button>
+      </div>
+
+      <div class="moldura" id="moldura">
+        <canvas id="tela" tabindex="0" role="img" aria-label="Fractal"></canvas>
+        <div class="selecao" id="selecao" hidden></div>
+        <div class="aviso-escolha" id="aviso-escolha" hidden>Clique num ponto do Mandelbrot para usar como c da Julia. Esc cancela.</div>
+        <div class="progresso" id="progresso" aria-hidden="true"><div id="progresso-barra"></div></div>
+      </div>
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+
+      <dl class="info" id="info">
+        <div><dt>Centro</dt><dd><code id="info-centro"></code></dd></div>
+        <div><dt>Zoom</dt><dd id="info-zoom"></dd></div>
+        <div><dt>Iterações</dt><dd id="info-iteracoes"></dd></div>
+        <div><dt>Precisão</dt><dd id="info-precisao"></dd></div>
+        <div><dt>Tempo</dt><dd id="info-tempo"></dd></div>
+      </dl>
+      <p class="aviso" id="aviso-precisao" hidden></p>
+    </section>
+
+    <div class="paineis">
+      <section class="card" aria-labelledby="t-calculo">
+        <h2 id="t-calculo">Cálculo</h2>
+        <div class="linha">
+          <div class="campo">
+            <label for="iteracoes">Iterações máximas</label>
+            <input type="number" id="iteracoes" min="10" max="1000000" step="50" inputmode="numeric">
+          </div>
+          <label class="check"><input type="checkbox" id="iter-auto" checked> Automáticas</label>
+        </div>
+        <p class="dica">No modo automático o limite cresce com o zoom e sobe sozinho quando muitos pixels escapam perto dele.</p>
+        <label for="motor">Precisão</label>
+        <select id="motor">
+          <option value="auto">Automática (double e depois perturbação)</option>
+          <option value="double">double (rápido, até uns 10^-13)</option>
+          <option value="dd">double-double (lento, até uns 10^-28)</option>
+          <option value="perturbacao">Perturbação (zoom profundo)</option>
+        </select>
+        <p class="dica">Force o double num zoom fundo para ver a imagem virar blocos: é o limite dos 53 bits.</p>
+      </section>
+
+      <section class="card" aria-labelledby="t-julia" id="painel-julia">
+        <h2 id="t-julia">Julia</h2>
+        <p class="dica">Cada ponto c do Mandelbrot tem o seu conjunto de Julia. No Mandelbrot, Alt + clique também escolhe c.</p>
+        <div class="linha">
+          <div class="campo">
+            <label for="julia-re">c, parte real</label>
+            <input type="number" id="julia-re" step="0.001" min="-4" max="4">
+          </div>
+          <div class="campo">
+            <label for="julia-im">c, parte imaginária</label>
+            <input type="number" id="julia-im" step="0.001" min="-4" max="4">
+          </div>
+        </div>
+        <div class="linha">
+          <button type="button" class="btn" id="julia-aplicar">Aplicar c</button>
+          <button type="button" class="btn secundario" id="julia-escolher">Escolher c no Mandelbrot</button>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="t-cores">
+        <h2 id="t-cores">Cores</h2>
+        <label for="paleta">Paleta</label>
+        <select id="paleta"></select>
+        <div class="gradiente" id="gradiente" aria-hidden="true"></div>
+        <ul class="paradas" id="paradas" aria-label="Paradas do gradiente"></ul>
+        <button type="button" class="btn secundario pequeno" id="adicionar-parada">Adicionar parada</button>
+        <label for="densidade">Densidade das cores <output id="densidade-valor" for="densidade"></output></label>
+        <input type="range" id="densidade" min="-3" max="3" step="0.01" value="0">
+        <label for="deslocamento">Deslocamento <output id="deslocamento-valor" for="deslocamento"></output></label>
+        <input type="range" id="deslocamento" min="0" max="1" step="0.005" value="0">
+        <div class="linha">
+          <label class="check"><input type="checkbox" id="escala-log"> Escala logarítmica</label>
+          <label class="check cor-interior">Interior <input type="color" id="cor-interior" value="#000000"></label>
+        </div>
+        <p class="dica">Trocar as cores não recalcula o fractal: só repinta a partir da contagem suave guardada.</p>
+      </section>
+
+      <section class="card" aria-labelledby="t-exportar">
+        <h2 id="t-exportar">Exportar e compartilhar</h2>
+        <label for="tamanho">Tamanho do PNG</label>
+        <select id="tamanho">
+          <option value="1280x720">1280 x 720</option>
+          <option value="1920x1080" selected>1920 x 1080 (Full HD)</option>
+          <option value="2560x1440">2560 x 1440</option>
+          <option value="3840x2160">3840 x 2160 (4K)</option>
+          <option value="2048x2048">2048 x 2048 (quadrado)</option>
+        </select>
+        <div class="linha">
+          <button type="button" class="btn" id="exportar">Exportar PNG</button>
+          <button type="button" class="btn secundario" id="cancelar-exportacao" hidden>Cancelar</button>
+          <button type="button" class="btn secundario" id="copiar-link">Copiar link desta vista</button>
+        </div>
+        <progress id="exportacao-progresso" max="1" value="0" hidden></progress>
+        <p class="status" id="exportacao-status" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="card" aria-labelledby="t-atalhos">
+        <h2 id="t-atalhos">Como navegar</h2>
+        <ul class="atalhos">
+          <li><strong>Roda do mouse</strong> ou <strong>pinça</strong>: zoom no ponto sob o cursor ou entre os dedos.</li>
+          <li><strong>Arrastar</strong>: move a vista.</li>
+          <li><strong>Shift + arrastar</strong> (ou o botão Zoom por retângulo): desenha o retângulo que vira a nova vista.</li>
+          <li><strong>Duplo clique</strong>: aproxima 2x; com Shift, afasta.</li>
+          <li><strong>Teclado</strong> (com o fractal em foco): setas movem, <kbd>+</kbd> e <kbd>-</kbd> fazem zoom.</li>
+          <li>O endereço da página guarda a vista: o botão voltar do navegador e os links copiados funcionam.</li>
+        </ul>
+      </section>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <p>Tudo roda no seu navegador. <a href="https://github.com/micdog22/explorador-de-fractais">Código aberto no GitHub</a> · Licença MIT</p>
+  </footer>
+</body>
+</html>
